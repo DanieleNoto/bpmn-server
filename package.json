@@ -1,0 +1,20 @@
+{
+  "name": "bpmn-server",
+  "version": "1.0.0",
+  "description": "Server che parsa file BPMN e li serve in JSON a Unity (Meta Quest 3)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "start:env": "node --env-file=.env src/server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1",
+    "fast-xml-parser": "^5.11.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

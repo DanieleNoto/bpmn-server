@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Defs_1" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:collaboration id="Collab_1">
+    <bpmn:participant id="Pool_Azienda" name="Azienda" processRef="Proc_1" />
+    <bpmn:participant id="Pool_Cliente" name="Cliente" />
+    <bpmn:messageFlow id="Msg_1" name="Ordine" sourceRef="Pool_Cliente" targetRef="Start_1" />
+    <bpmn:textAnnotation id="Note_1"><bpmn:text>Esempio di test</bpmn:text></bpmn:textAnnotation>
+    <bpmn:association id="Assoc_1" sourceRef="Task_Verifica" targetRef="Note_1" />
+  </bpmn:collaboration>
+  <bpmn:process id="Proc_1" name="Gestione ordine" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_1">
+      <bpmn:lane id="Lane_Vendite" name="Vendite">
+        <bpmn:flowNodeRef>Start_1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Verifica</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gw_1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_Rifiuto</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Magazzino" name="Magazzino">
+        <bpmn:flowNodeRef>Sub_Spedizione</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_Ok</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Timer_1</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:dataObjectReference id="DataRef_1" name="Ordine" dataObjectRef="DataObj_1" />
+    <bpmn:dataObject id="DataObj_1" />
+    <bpmn:startEvent id="Start_1" name="Ordine ricevuto">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="MED_1" />
+    </bpmn:startEvent>
+    <bpmn:userTask id="Task_Verifica" name="Verifica&#10;ordine">
+      <bpmn:documentation>Controllare disponibilità</bpmn:documentation>
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+      <bpmn:dataInputAssociation id="DIA_1"><bpmn:sourceRef>DataRef_1</bpmn:sourceRef><bpmn:targetRef>In_1</bpmn:targetRef></bpmn:dataInputAssociation>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gw_1" name="Disponibile?" default="Flow_No">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_Si</bpmn:outgoing>
+      <bpmn:outgoing>Flow_No</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="End_Rifiuto" name="Rifiutato"><bpmn:incoming>Flow_No</bpmn:incoming></bpmn:endEvent>
+    <bpmn:subProcess id="Sub_Spedizione" name="Spedizione">
+      <bpmn:incoming>Flow_Si</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+      <bpmn:startEvent id="SubStart" />
+      <bpmn:serviceTask id="SubTask" name="Prepara pacco" />
+      <bpmn:endEvent id="SubEnd" />
+      <bpmn:sequenceFlow id="SF_a" sourceRef="SubStart" targetRef="SubTask" />
+      <bpmn:sequenceFlow id="SF_b" sourceRef="SubTask" targetRef="SubEnd" />
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="Timer_1" name="48h" attachedToRef="Sub_Spedizione" cancelActivity="false">
+      <bpmn:timerEventDefinition id="TED_1" />
+    </bpmn:boundaryEvent>
+    <bpmn:endEvent id="End_Ok" name="Spedito"><bpmn:incoming>Flow_3</bpmn:incoming></bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="Start_1" targetRef="Task_Verifica" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_Verifica" targetRef="Gw_1" />
+    <bpmn:sequenceFlow id="Flow_Si" name="Sì" sourceRef="Gw_1" targetRef="Sub_Spedizione">
+      <bpmn:conditionExpression>${disponibile}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_No" name="No" sourceRef="Gw_1" targetRef="End_Rifiuto" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Sub_Spedizione" targetRef="End_Ok" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_1">
+    <bpmndi:BPMNPlane id="Plane_1" bpmnElement="Collab_1">
+      <bpmndi:BPMNShape id="Pool_Azienda_di" bpmnElement="Pool_Azienda" isHorizontal="true"><dc:Bounds x="100" y="150" width="900" height="400" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Pool_Cliente_di" bpmnElement="Pool_Cliente" isHorizontal="true"><dc:Bounds x="100" y="20" width="900" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_V_di" bpmnElement="Lane_Vendite" isHorizontal="true"><dc:Bounds x="130" y="150" width="870" height="200" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_M_di" bpmnElement="Lane_Magazzino" isHorizontal="true"><dc:Bounds x="130" y="350" width="870" height="200" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Start_1_di" bpmnElement="Start_1"><dc:Bounds x="182" y="232" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="160" y="275" width="80" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_V_di" bpmnElement="Task_Verifica"><dc:Bounds x="270" y="210" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gw_1_di" bpmnElement="Gw_1" isMarkerVisible="true"><dc:Bounds x="425" y="225" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="418" y="195" width="64" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_R_di" bpmnElement="End_Rifiuto"><dc:Bounds x="582" y="232" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Sub_di" bpmnElement="Sub_Spedizione" isExpanded="false"><dc:Bounds x="400" y="410" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Timer_di" bpmnElement="Timer_1"><dc:Bounds x="432" y="472" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Ok_di" bpmnElement="End_Ok"><dc:Bounds x="582" y="432" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Data_di" bpmnElement="DataRef_1"><dc:Bounds x="302" y="300" width="36" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Note_di" bpmnElement="Note_1"><dc:Bounds x="700" y="170" width="120" height="40" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1"><di:waypoint x="218" y="250" /><di:waypoint x="270" y="250" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2"><di:waypoint x="370" y="250" /><di:waypoint x="425" y="250" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Si_di" bpmnElement="Flow_Si"><di:waypoint x="450" y="275" /><di:waypoint x="450" y="410" /><bpmndi:BPMNLabel><dc:Bounds x="455" y="330" width="15" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_No_di" bpmnElement="Flow_No"><di:waypoint x="475" y="250" /><di:waypoint x="582" y="250" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3"><di:waypoint x="500" y="450" /><di:waypoint x="582" y="450" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Msg_1_di" bpmnElement="Msg_1"><di:waypoint x="200" y="100" /><di:waypoint x="200" y="232" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DIA_1_di" bpmnElement="DIA_1"><di:waypoint x="320" y="300" /><di:waypoint x="320" y="290" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Assoc_1_di" bpmnElement="Assoc_1"><di:waypoint x="370" y="220" /><di:waypoint x="700" y="190" /></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_Sub">
+    <bpmndi:BPMNPlane id="Plane_Sub" bpmnElement="Sub_Spedizione">
+      <bpmndi:BPMNShape id="SubStart_di" bpmnElement="SubStart"><dc:Bounds x="100" y="100" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SubTask_di" bpmnElement="SubTask"><dc:Bounds x="190" y="78" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SubEnd_di" bpmnElement="SubEnd"><dc:Bounds x="340" y="100" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="SF_a_di" bpmnElement="SF_a"><di:waypoint x="136" y="118" /><di:waypoint x="190" y="118" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_b_di" bpmnElement="SF_b"><di:waypoint x="290" y="118" /><di:waypoint x="340" y="118" /></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

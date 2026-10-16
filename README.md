@@ -1,10 +1,10 @@
-# BPMN Server per Unity / Meta Quest 3
+# Grafico live per Unity / Meta Quest 3
 
-Server Node.js che legge file `.bpmn` (BPMN 2.0), li parsa **una volta sul server** e li espone via API come JSON "render-ready" (nodi, archi, pool, lane con coordinate).
-L'app Unity sul Quest scarica il JSON in un buffer in memoria e costruisce il grafo: **nessun file viene salvato sul visore**.
+Server Node.js che riceve valori numerici da una pagina web e li invia **in tempo reale** al visore via WebSocket, dove vengono disegnati su un grafico nel tempo.
+I punti restano solo in RAM (ultimi 200).
 
 ```
- .bpmn  ──►  [Node server: parse + cache RAM]  ──HTTP/JSON──►  [Quest 3: UnityWebRequest → RAM → rendering]
+ [Pagina /live]  ──POST──►  [Node server: ultimi 200 punti in RAM]  ──WebSocket──►  [Quest 3: grafico]
 ```
 
 ## Avvio
@@ -14,13 +14,12 @@ npm install
 npm start                # porta 3000, ascolta su tutte le interfacce
 # oppure con variabili da file:
 cp .env.example .env && npm run start:env
+npm test                 # test di invio, push, reset e autenticazione
 ```
 
-All'avvio il server stampa gli IP da usare dal visore, es. `http://192.168.1.50:3000/api/diagrams`.
+All'avvio il server stampa gli indirizzi da usare, es. `http://192.168.1.50:3000/live` (pagina di invio) e `ws://192.168.1.50:3000/api/measurements/live` (dal Quest).
 
-Metti i file `.bpmn` nella cartella `bpmn/`: vengono caricati all'avvio e **ricaricati automaticamente** quando li modifichi o sostituisci. L'id del diagramma è il nome del file senza estensione (`processo.bpmn` → `processo`).
-
-Docker: `docker build -t bpmn-server . && docker run -p 3000:3000 -v $PWD/bpmn:/app/bpmn bpmn-server`
+Docker: `docker build -t grafico-live . && docker run -p 3000:3000 grafico-live`
 
 ## Configurazione (variabili d'ambiente)
 
@@ -28,88 +27,44 @@ Docker: `docker build -t bpmn-server . && docker run -p 3000:3000 -v $PWD/bpmn:/
 |---|---|---|
 | `HOST` | `0.0.0.0` | Interfaccia di ascolto |
 | `PORT` | `3000` | Porta |
-| `BPMN_DIR` | `./bpmn` | Cartella dei file BPMN |
-| `API_KEY` | *(vuota)* | Se impostata, richiesta nell'header `X-Api-Key` (tutte le API tranne `/api/health`) |
-| `PERSIST_UPLOADS` | `true` | Se `false`, i diagrammi caricati via PUT restano solo in RAM |
-| `MAX_UPLOAD_SIZE` | `20mb` | Dimensione massima upload |
+| `API_KEY` | *(vuota)* | Se impostata, richiesta nell'header `X-Api-Key` (tutte le API tranne `/api/health`, WebSocket compreso) |
 | `CORS_ORIGIN` | `*` | Header CORS |
+
+## Pagina `/live`
+
+Inserisci un valore e premi **Invia punto**: ogni invio aggiunge un punto al grafico.
+**Reset grafico** cancella tutti i punti (chiede conferma).
 
 ## API
 
 | Metodo | Endpoint | Descrizione |
 |---|---|---|
+| GET | `/live` | Pagina di invio valori (anche `/` reindirizza qui) |
 | GET | `/api/health` | Stato del server |
-| GET | `/api/diagrams` | Elenco diagrammi (id, nome, hash, statistiche) |
-| GET | `/api/diagrams/{id}` | **JSON parsato** del diagramma. `?plane=N` per i piani secondari (es. contenuto di un sottoprocesso collassato) |
-| GET | `/api/diagrams/{id}/meta` | Solo hash, bounds, piani, statistiche (per controllare aggiornamenti) |
-| GET | `/api/diagrams/{id}/raw` | XML originale |
-| PUT/POST | `/api/diagrams/{id}` | Carica/sostituisce un BPMN (body = XML) |
-| DELETE | `/api/diagrams/{id}` | Rimuove il diagramma |
+| POST | `/api/measurements` | Aggiunge un punto. Body JSON `{ "value": 23.7 }` (numero finito tra -1e9 e 1e9) |
+| DELETE | `/api/measurements` | Reset: svuota i punti e apre una nuova sessione |
+| WS | `/api/measurements/live` | Stream dei punti verso il visore |
 
-Il GET del diagramma restituisce un `ETag`: se Unity rimanda `If-None-Match`, il server risponde `304` senza body quando nulla è cambiato (polling leggero).
-
-Caricare un file:
 ```bash
-curl -X PUT -H "Content-Type: application/xml" --data-binary @mio.bpmn http://localhost:3000/api/diagrams/mio
+curl -X POST -H "Content-Type: application/json" -d '{"value":23.7}' http://localhost:3000/api/measurements
+curl -X DELETE http://localhost:3000/api/measurements
 ```
 
-### Formato JSON (estratto)
+### Messaggi WebSocket
+
+Ogni messaggio ha la forma:
 
 ```jsonc
-{
-  "id": "esempio", "hash": "8af0…", "planeIndex": 0,
-  "bounds": { "x": 100, "y": 20, "width": 900, "height": 530 },   // bounding box totale in px
-  "planes": [{ "index": 0, "id": "Diagram_1", "bpmnElement": "Collab_1" }],
-  "participants": [{ "id": "Pool_Azienda", "name": "Azienda", "x": 100, "y": 150, "width": 900, "height": 400, "hasShape": true, … }],
-  "lanes": [{ "id": "Lane_Vendite", "name": "Vendite", "parentLaneId": "", … }],
-  "nodes": [{
-    "id": "Start_1", "type": "startEvent", "category": "event", "eventDefinition": "message",
-    "name": "Ordine ricevuto", "laneId": "Lane_Vendite", "parentId": "", "attachedToRef": "",
-    "x": 182, "y": 232, "width": 36, "height": 36, "hasShape": true,
-    "hasLabel": true, "label": { "x": 160, "y": 275, "width": 80, "height": 14 },
-    "incoming": [], "outgoing": ["Flow_1"], …
-  }],
-  "edges": [{
-    "id": "Flow_Si", "type": "sequenceFlow", "name": "Sì", "sourceId": "Gw_1", "targetId": "Sub_Spedizione",
-    "condition": "${disponibile}", "isDefault": false,
-    "waypoints": [{ "x": 450, "y": 275 }, { "x": 450, "y": 410 }], …
-  }],
-  "stats": { … }, "warnings": []
-}
+{ "session": "b1c2…", "points": [{ "id": 1, "value": 23.7, "time": 1792148885078 }] }
 ```
 
-- `nodes[].laneName`: nome della lane (es. `DIPENDENTE`), `nodes[].annotations`: testi delle annotazioni collegate.
-- `nodes[].properties`: estensioni non standard appiattite in `{key, value}`, es. Camunda
-  `topic` = `NotificaHandler`, `inputOutput.outputParameter[accepted]` = `${accepted}`,
-  `taskListener[create].script`, oppure custom come `cost` = `0`. In C#: `node.GetProperty("topic")`.
-- `category`: `event` | `task` | `subprocess` | `gateway` | `data` | `artifact`
-- `edges[].type`: `sequenceFlow` | `messageFlow` | `association` | `dataInputAssociation` | `dataOutputAssociation`
-- Coordinate BPMN: origine in alto a sinistra, **Y verso il basso** (in Unity va invertita, lo fa già il renderer d'esempio).
-- Nessun `null` e solo array: il JSON si deserializza direttamente con `JsonUtility`.
-- `hasShape: false` = elemento senza grafica nel piano richiesto (es. nodi dentro un sottoprocesso collassato → usa `?plane=1`).
-
-## Lato Unity (cartella `unity/`)
-
-Copia i 3 script in `Assets/Scripts/Bpmn/`:
-
-- **`BpmnModels.cs`** – classi dati per `JsonUtility`.
-- **`BpmnApiClient.cs`** – scarica il diagramma con `UnityWebRequest` + `DownloadHandlerBuffer` (solo RAM), gestisce ETag/304, polling opzionale, API key.
-- **`BpmnGraphRenderer.cs`** – esempio di rendering 3D con primitive, `LineRenderer` e TextMeshPro. Da sostituire/personalizzare con i vostri prefab.
-
-Setup scena:
-1. GameObject vuoto → aggiungi `BpmnApiClient` (imposta `baseUrl` con l'IP del server e `diagramId`).
-2. Stesso o altro GameObject → aggiungi `BpmnGraphRenderer` e trascina il client nel campo `client`. Posizionalo davanti alla camera (es. z = 1.5 m).
-3. Opzionale: assegna `baseMaterial` (es. un materiale URP/Unlit) così lo shader è sicuramente incluso nella build.
-
-Uso da codice:
-```csharp
-StartCoroutine(client.FetchDiagram("esempio", 0,
-    d => renderer.Render(d),
-    err => Debug.LogError(err)));
-```
+- Alla connessione arriva lo storico (fino a 200 punti), poi un messaggio per ogni nuovo punto.
+- Al **reset** arriva `{ "session": "<nuova>", "points": [], "reset": true }`: il client deve svuotare il grafico.
+  In generale, se `session` cambia rispetto all'ultima ricevuta, il client deve ripartire da zero (vale anche se il server è stato riavviato).
+- `id` riparte da 1 dopo ogni reset.
 
 ### Impostazioni Android / Quest 3
 - **Player Settings → Other → Internet Access = Require**.
-- Se il server è in HTTP (non HTTPS): **Player Settings → Other → Allow downloads over HTTP = Always allowed** (altrimenti Android blocca il traffico in chiaro).
+- Se il server è in HTTP/WS (non HTTPS/WSS): **Player Settings → Other → Allow downloads over HTTP = Always allowed**.
 - Quest e server devono essere sulla stessa rete (LAN) o il server deve essere raggiungibile pubblicamente; su Windows apri la porta 3000 nel firewall.
 - Per un server esterno/cloud: mettilo dietro HTTPS (reverse proxy, es. Caddy/Nginx) e imposta `API_KEY`.

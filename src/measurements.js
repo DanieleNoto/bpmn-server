@@ -3,7 +3,7 @@ const { WebSocketServer, WebSocket } = require('ws');
 const { randomUUID } = require('crypto');
 
 module.exports = function attachMeasurements(app, server, apiKey) {
-  const session = randomUUID();
+  let session = randomUUID();
   const points = [];
   let sequence = 0;
   const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
@@ -23,12 +23,21 @@ module.exports = function attachMeasurements(app, server, apiKey) {
       return res.status(400).json({ error: 'Inserisci un numero finito tra -1e9 e 1e9; serie: valore.' });
     const point = { id: ++sequence, value, time: Date.now() };
     points.push(point); if (points.length > 200) points.shift();
-    const message = JSON.stringify({ session, points: [point] });
+    broadcast({ session, points: [point] });
+    res.status(201).json(point);
+  });
+  // Reset: svuota il grafico e cambia sessione, così i client ripartono da zero
+  app.delete('/api/measurements', (_req, res) => {
+    points.length = 0; sequence = 0; session = randomUUID();
+    broadcast({ session, points: [], reset: true });
+    res.json({ session });
+  });
+  function broadcast(payload) {
+    const message = JSON.stringify(payload);
     for (const ws of wss.clients) {
       if (ws.readyState !== WebSocket.OPEN) continue;
       if (ws.bufferedAmount > 65536) { ws.terminate(); continue; }
       ws.send(message);
     }
-    res.status(201).json(point);
-  });
+  }
 };

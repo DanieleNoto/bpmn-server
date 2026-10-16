@@ -1,18 +1,18 @@
 {
   "name": "bpmn-server",
   "version": "1.0.0",
-  "description": "Server che parsa file BPMN e li serve in JSON a Unity (Meta Quest 3)",
+  "description": "Server del grafico live: riceve valori e li invia in tempo reale a Unity (Meta Quest 3)",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "start:env": "node --env-file=.env src/server.js"
+    "start:env": "node --env-file=.env src/server.js",
+    "test": "node --test src/measurements.test.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "express": "^5.2.1",
-    "fast-xml-parser": "^5.11.2",
     "ws": "^8.22.0"
   },
   "engines": {

@@ -12,7 +12,8 @@
   "license": "ISC",
   "dependencies": {
     "express": "^5.2.1",
-    "fast-xml-parser": "^5.11.2"
+    "fast-xml-parser": "^5.11.2",
+    "ws": "^8.22.0"
   },
   "engines": {
     "node": ">=18"

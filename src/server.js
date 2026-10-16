@@ -23,6 +23,8 @@ store.loadAll();
 store.watch();
 
 const app = express();
+const server = require('http').createServer(app);
+app.get('/live', (_req, res) => res.sendFile(path.join(__dirname, '..', 'live.html')));
 app.disable('x-powered-by');
 app.set('etag', 'strong'); // permette a Unity di usare If-None-Match -> 304
 
@@ -109,9 +111,11 @@ app.delete('/api/diagrams/:id', requireItem, (req, res) => {
   res.sendStatus(204);
 });
 
+require('./measurements')(app, server, config.apiKey);
+
 app.use((_req, res) => res.status(404).json({ error: 'Endpoint non trovato' }));
 
-app.listen(config.port, config.host, () => {
+server.listen(config.port, config.host, () => {
   console.log(`\nBPMN server in ascolto su http://${config.host}:${config.port}`);
   const ips = Object.values(os.networkInterfaces()).flat().filter((i) => i && i.family === 'IPv4' && !i.internal);
   for (const i of ips) console.log(`  -> dal Quest usa: http://${i.address}:${config.port}/api/diagrams`);
